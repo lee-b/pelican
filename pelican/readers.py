@@ -48,9 +48,15 @@ METADATA_FIELD_PROCESSORS = {
     'slug': lambda x, y: x.strip() or _DISCARD,
 }
 
-JINJA_VAR_SUBST_RE = re.compile("\{\{\s*([a-zA-Z]{1}[a-zA-Z0-9_]*)\s*\}\}")
+JINJA_VAR_SUBST_RE = re.compile(r"\{\{\s*([a-zA-Z]{1}[a-zA-Z0-9_]*)\s*\}\}")
 
 def substitute_jinja_style_settings_vars(settings, value):
+    """
+    Searches the given metadata field value, looking for references to variables in
+    the jinja {{ VAR_NAME }} format.  Replaces all such variables with values
+    from settings, and returns the resulting new value.
+    """
+
     matches = JINJA_VAR_SUBST_RE.finditer(value)
     for match in matches:
         varname = match.group(1)
