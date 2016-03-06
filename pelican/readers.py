@@ -57,6 +57,9 @@ def substitute_jinja_style_settings_vars(settings, value):
     from settings, and returns the resulting new value.
     """
 
+    if not isinstance(value, six.string_types):
+        return value
+
     matches = JINJA_VAR_SUBST_RE.finditer(value)
     for match in matches:
         varname = match.group(1)
