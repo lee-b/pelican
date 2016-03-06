@@ -31,7 +31,7 @@ except ImportError:
 # This means that _filter_discardable_metadata() must be called on processed
 # metadata dicts before use, to remove the items with the special value.
 _DISCARD = object()
-METADATA_PROCESSORS = {
+METADATA_FIELD_PROCESSORS = {
     'tags': lambda x, y: ([
         Tag(tag, y)
         for tag in ensure_metadata_list(x)
@@ -47,6 +47,21 @@ METADATA_PROCESSORS = {
     ] or _DISCARD),
     'slug': lambda x, y: x.strip() or _DISCARD,
 }
+
+JINJA_VAR_SUBST_RE = re.compile("\{\{\s*([a-zA-Z]{1}[a-zA-Z0-9_]*)\s*\}\}")
+
+def substitute_jinja_style_settings_vars(settings, value):
+    matches = JINJA_VAR_SUBST_RE.finditer(value)
+    for match in matches:
+        varname = match.group(1)
+        repval = settings[varname]
+        value = value[:match.start()] + repval + value[match.end()+1:]
+
+    return value
+
+UNIVERSAL_METADATA_PROCESSORS = (
+    substitute_jinja_style_settings_vars,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,8 +123,12 @@ class BaseReader(object):
         self.settings = settings
 
     def process_metadata(self, name, value):
-        if name in METADATA_PROCESSORS:
-            return METADATA_PROCESSORS[name](value, self.settings)
+        if name in METADATA_FIELD_PROCESSORS:
+            return METADATA_FIELD_PROCESSORS[name](value, self.settings)
+
+        for ump in UNIVERSAL_METADATA_PROCESSORS:
+            value = ump(self.settings, value)
+
         return value
 
     def read(self, source_path):
@@ -264,7 +283,7 @@ class MarkdownReader(BaseReader):
                 self._md.reset()
                 formatted = self._md.convert(formatted_values)
                 output[name] = self.process_metadata(name, formatted)
-            elif name in METADATA_PROCESSORS:
+            elif name in METADATA_FIELD_PROCESSORS:
                 if len(value) > 1:
                     logger.warning(
                         'Duplicate definition of `%s` '
